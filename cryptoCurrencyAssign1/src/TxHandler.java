@@ -30,6 +30,10 @@ public class TxHandler {
     		return false;
     	}
     	
+    	if( tx == null ) {
+    		return false;
+    	}
+    	
     	ArrayList<Transaction.Input> inputList = tx.getInputs();
     	if( inputList == null ) {
     		return false;
@@ -103,19 +107,39 @@ public class TxHandler {
     public Transaction[] handleTxs(Transaction[] possibleTxs) {
         // IMPLEMENT THIS
     	ArrayList<Transaction> validTxList = new ArrayList<Transaction>();
+    	int returnListSize = 0;
     	
     	/* Update the current UTXO Pool */
-		for( Transaction tx : possibleTxs ) {
-			if( isValidTx( tx ) ) {
-    			validTxList.add( tx );
+		for( int i = 0 ; i < possibleTxs.length ; i ++ ) {
+			
+			/* record the size of the valid tx List at the beginning of the loop */
+			if( i == 0 ) {
+				returnListSize = validTxList.size();
+			}
+			
+			if( isValidTx( possibleTxs[ i ] ) ) {
+    			validTxList.add( possibleTxs[ i ] );
     			
-				for( Transaction.Input ip : tx.getInputs() ) {
-					// We've found a corresponding output
-					if( tx.getOutput( ip.outputIndex ) != null ) {
-						_utxoPool.removeUTXO( new UTXO( ip.prevTxHash , ip.outputIndex ) );
-						_utxoPool.addUTXO( new UTXO( ip.prevTxHash , ip.outputIndex ) , tx.getOutput( ip.outputIndex ) );
-					}
+				for( Transaction.Input ip : possibleTxs[ i ].getInputs() ) {
+					_utxoPool.removeUTXO( new UTXO( ip.prevTxHash , ip.outputIndex ) );
 				}
+				
+				possibleTxs[ i ].finalize();
+				for( int y = 0 ; y < possibleTxs[ i ].numOutputs() ; y ++ ) {
+					_utxoPool.addUTXO( new UTXO( possibleTxs[ i ].getHash() , y ) , possibleTxs[ i ].getOutput( y ) );
+					
+				}
+				
+				possibleTxs[ i ] = null;
+			}
+			
+			/* record the size of the valid tx List at the end of the loop */
+			if( i == ( possibleTxs.length - 1 ) ) {
+				/* if there are new tx added into the valid tx list, we loop again */
+				if( validTxList.size() > returnListSize ) {
+					returnListSize = validTxList.size();
+					i = -1;
+				} // else we do nothing and exit the loop
 			}
 		}
     	
